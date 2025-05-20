@@ -1,0 +1,190 @@
+{% extends 'index.html' %}
+
+{% block body %}
+<div class="container py-5">
+    <!-- Back navigation -->
+    <div class="mb-4">
+        <a href="/" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Scanner
+        </a>
+    </div>
+
+    <!-- Page Title -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h2 class="section-title">AI-Powered Document Analysis</h2>
+            <p class="lead text-muted">Extracted with Qwen2-VL-2B-OCR large vision-language model</p>
+        </div>
+    </div>
+
+    <!-- Processed Images Section -->
+    <div class="row mb-5">
+        <div class="col-12 mb-4">
+            <h3 class="h4 mb-4 border-bottom pb-2">
+                <i class="fas fa-image me-2"></i>Analyzed Document
+            </h3>
+        </div>
+        
+        <!-- Original Image -->
+        <div class="col-md-12 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-file-alt me-2"></i>Document Image
+                </div>
+                <div class="card-body p-2 text-center">
+                    <img class="img-fluid rounded" style="max-height: 400px;" src="/static/media/bounding_box.jpg" alt="Document image">
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>Original document processed by Qwen2-VL AI model
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Extracted Information Section -->
+    <div class="row">
+        <div class="col-12 mb-4">
+            <h3 class="h4 mb-4 border-bottom pb-2">
+                <i class="fas fa-robot me-2"></i>AI-Extracted Information
+            </h3>
+        </div>
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="bg-primary text-white">
+                                <tr>
+                                    <th scope="col" style="width: 30%">
+                                        <i class="fas fa-tag me-2"></i>Entity Type
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-text-width me-2"></i>Extracted Value
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for key, value in results.items() %}
+                                {% if value %}
+                                <tr>
+                                    <td class="fw-bold text-primary">{{ key }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-check-circle text-success me-2"></i>
+                                            {% if key == 'PHONE' and (value is iterable and value is not string) %}
+                                                <ul class="list-unstyled mb-0">
+                                                    {% for item in value %}
+                                                    <li><i class="fas fa-phone me-2 text-secondary"></i>{{ item }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% elif key == 'PHONE' and ',' in value|string %}
+                                                <ul class="list-unstyled mb-0">
+                                                    {% for item in value.split(', ') %}
+                                                    <li><i class="fas fa-phone me-2 text-secondary"></i>{{ item }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% elif key == 'EMAIL' and (value is iterable and value is not string) %}
+                                                <ul class="list-unstyled mb-0">
+                                                    {% for item in value %}
+                                                    <li>
+                                                        <a href="mailto:{{ item }}" class="text-decoration-none">
+                                                            <i class="fas fa-envelope me-2 text-secondary"></i>{{ item }}
+                                                        </a>
+                                                    </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% elif key == 'EMAIL' %}
+                                                <a href="mailto:{{ value }}" class="text-decoration-none">
+                                                    <i class="fas fa-envelope me-2 text-secondary"></i>{{ value }}
+                                                </a>
+                                            {% elif key == 'WEB' and (value is iterable and value is not string) %}
+                                                <ul class="list-unstyled mb-0">
+                                                    {% for item in value %}
+                                                    <li>
+                                                        <a href="http://{{ item }}" target="_blank" class="text-decoration-none">
+                                                            <i class="fas fa-globe me-2 text-secondary"></i>{{ item }}
+                                                        </a>
+                                                    </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% elif key == 'WEB' %}
+                                                <a href="http://{{ value }}" target="_blank" class="text-decoration-none">
+                                                    <i class="fas fa-globe me-2 text-secondary"></i>{{ value }}
+                                                </a>
+                                            {% elif value is iterable and value is not string %}
+                                                <ul class="list-unstyled mb-0">
+                                                    {% for item in value %}
+                                                    <li>{{ item }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                {{ value }}
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Model Information -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>About Qwen2-VL AI Model</h5>
+                    <p class="card-text">
+                        This document was analyzed using the Qwen2-VL-2B-OCR model, a multimodal AI system that can understand both text and visual elements in documents.
+                        Unlike traditional OCR which processes text character by character, this neural network-based model understands the semantic content and structure of the document.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mt-5">
+        <div class="col-12 text-center">
+            <a href="/" class="btn btn-primary me-2">
+                <i class="fas fa-camera me-2"></i>Scan Another Document
+            </a>
+            <button onclick="window.print()" class="btn btn-outline-secondary">
+                <i class="fas fa-print me-2"></i>Print Results
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Add custom styles -->
+<style>
+    .table td, .table th {
+        vertical-align: middle;
+    }
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+    }
+    .section-title {
+        border-bottom: 2px solid #0d6efd;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+        color: #0d6efd;
+    }
+    @media print {
+        .btn {
+            display: none;
+        }
+    }
+</style>
+{% endblock %} 

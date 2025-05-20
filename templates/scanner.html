@@ -1,0 +1,181 @@
+{% extends 'index.html' %}
+
+
+{% block body %}
+<br><br>
+    
+<h4>
+    Upload the Business Card to Scan and Extract Entities
+</h4>
+
+<div class="row">
+    <form action="#" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="ocrModel" class="form-label">Select OCR Model</label>
+            <select class="form-select" id="ocrModel" name="ocr_model" onchange="toggleLoadModelButton()">
+                <option value="pytesseract" {% if ocr_model != 'qwen2' %}selected{% endif %}>Pytesseract OCR Spacy NER</option>
+                <option value="qwen2" {% if ocr_model == 'qwen2' %}selected{% endif %}>Qwen2-VL-2B-OCR</option>
+            </select>
+        </div>
+        <div id="loadModelBtnContainer" style="display: none; margin-bottom: 15px;">
+            <button type="button" class="btn btn-secondary" id="loadModelBtn" onclick="loadQwenModel()">Load Model</button>
+            <span id="modelStatus" class="ms-2 text-muted" style="display: none;">Loading...</span>
+        </div>
+        <div class="input-group">
+            <input type="file" class="form-control" name="image_name" required>
+            <input type="submit" value="Upload Image" class="btn btn-primary">
+        </div>
+    </form>
+    <br>
+    {% if fileupload %}
+
+        <div class="row">
+            <button class="btn btn-primary" id="sendData">
+                <span id="btn-text">Wrap Document and Extract Text</span>
+            </button>
+        </div>
+
+    {% endif %}
+
+</div>
+
+
+<!-- Creating CANVAS -->
+{% if fileupload %}
+    <p>{{ message }}</p>
+
+    <div class="row">
+        <div class="col">
+            <canvas id="canvas" style="max-width: 100%; height: auto"></canvas>
+
+        </div>
+        <div class="col" id="loader" align="center">
+
+        </div>
+
+    </div>
+
+    <script>
+        // Ensure loadPoints exists to prevent errors
+        if (typeof loadPoints !== 'function') {
+            window.loadPoints = function(points) {
+                console.log('loadPoints called but not fully implemented', points);
+            };
+        }
+        // Load the points
+        loadPoints({{ points | tojson }});
+    </script>
+
+    <script>
+        // Button click handling
+        document.getElementById('sendData').onclick = function() {
+            var model = "{{ ocr_model|default('pytesseract') }}";
+            console.log("Selected model:", model); // Debug logging
+            
+            // Add loader animation for both paths
+            document.getElementById("loader").innerHTML = '<img src="/static/images/scan.gif">';
+            
+            if (model === 'qwen2') {
+                // For Qwen2, just redirect to prediction
+                window.location.href = "/prediction";
+                return false;
+            } else {
+                // For Pytesseract, continue with transform endpoint
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/transform', true);
+                xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
+                xhr.onload = function() {
+                    if (this.status === 200) {
+                        window.location.href = 'prediction';
+                    }
+                };
+                
+                // Prepare points data
+                var pointsData = [
+                    [circles[0].x, circles[0].y],
+                    [circles[1].x, circles[1].y],
+                    [circles[2].x, circles[2].y],
+                    [circles[3].x, circles[3].y]
+                ];
+                
+                xhr.send(JSON.stringify({"data": pointsData}));
+                return false;
+            }
+        };
+        
+        // Update button text based on model
+        document.addEventListener('DOMContentLoaded', function() {
+            var model = "{{ ocr_model|default('pytesseract') }}";
+            var btnText = document.getElementById('btn-text');
+            if (btnText && model === 'qwen2') {
+                btnText.textContent = 'Process with Qwen2-VL';
+            }
+        });
+    </script>
+
+{% endif %}
+
+<script>
+    function toggleLoadModelButton() {
+        const modelSelect = document.getElementById('ocrModel');
+        const loadModelBtnContainer = document.getElementById('loadModelBtnContainer');
+        
+        if (modelSelect.value === 'qwen2') {
+            loadModelBtnContainer.style.display = 'block';
+        } else {
+            loadModelBtnContainer.style.display = 'none';
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set Qwen model button visibility based on the current selection
+        toggleLoadModelButton();
+        
+        // If Qwen2 is initially selected, ensure the button is visible
+        var initialModel = "{{ ocr_model|default('pytesseract') }}";
+        if (initialModel === 'qwen2') {
+            document.getElementById('loadModelBtnContainer').style.display = 'block';
+        }
+    });
+
+    let modelLoaded = false;
+    
+    function loadQwenModel() {
+        if (modelLoaded) {
+            alert('Model already loaded!');
+            return;
+        }
+        
+        const loadBtn = document.getElementById('loadModelBtn');
+        const statusSpan = document.getElementById('modelStatus');
+        
+        // Disable button and show loading status
+        loadBtn.disabled = true;
+        statusSpan.style.display = 'inline';
+        
+        // Simulate loading with a fetch request to a route that will load the model
+        fetch('/load_qwen_model', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            statusSpan.textContent = 'Model Loaded';
+            statusSpan.classList.remove('text-muted');
+            statusSpan.classList.add('text-success');
+            modelLoaded = true;
+        })
+        .catch(error => {
+            console.error('Error loading model:', error);
+            statusSpan.textContent = 'Failed to load model';
+            statusSpan.classList.remove('text-muted');
+            statusSpan.classList.add('text-danger');
+            loadBtn.disabled = false;
+        });
+    }
+</script>
+
+{% endblock  %}
