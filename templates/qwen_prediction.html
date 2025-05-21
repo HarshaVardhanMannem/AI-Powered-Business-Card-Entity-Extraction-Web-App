@@ -4,7 +4,7 @@
 <div class="container py-5">
     <!-- Back navigation -->
     <div class="mb-4">
-        <a href="/" class="btn btn-outline-primary">
+        <a href="/" class="btn btn-gradient">
             <i class="fas fa-arrow-left me-2"></i>Back to Scanner
         </a>
     </div>
@@ -12,53 +12,50 @@
     <!-- Page Title -->
     <div class="row mb-5">
         <div class="col-12 text-center">
-            <h2 class="section-title">AI-Powered Document Analysis</h2>
-            <p class="lead text-muted">Extracted with Qwen2-VL-2B-OCR large vision-language model</p>
+            <h2 class="section-title text-primary fw-bold">
+                <i class="fas fa-file-alt me-2"></i>Qwen2 AI Analysis Results
+            </h2>
+            <p class="lead text-muted">View your processed document information below</p>
         </div>
     </div>
 
-    <!-- Processed Images Section -->
-    <div class="row mb-5">
-        <div class="col-12 mb-4">
-            <h3 class="h4 mb-4 border-bottom pb-2">
-                <i class="fas fa-image me-2"></i>Analyzed Document
-            </h3>
-        </div>
-        
-        <!-- Original Image -->
-        <div class="col-md-12 mb-4">
-            <div class="card h-100">
+    <!-- Main Content Section -->
+    <div class="row">
+        <!-- Original Image Section -->
+        <div class="col-md-5 mb-4">
+            <div class="card glass-card h-100 animate__animated animate__fadeInLeft">
                 <div class="card-header bg-primary text-white">
-                    <i class="fas fa-file-alt me-2"></i>Document Image
+                    <i class="fas fa-file-image me-2"></i>Original Document
                 </div>
                 <div class="card-body p-2 text-center">
-                    <img class="img-fluid rounded" style="max-height: 400px;" src="/static/media/bounding_box.jpg" alt="Document image">
+                    <img class="img-fluid rounded shadow" src="/static/media/upload.jpg" alt="Original document image">
                 </div>
                 <div class="card-footer bg-light">
                     <small class="text-muted">
-                        <i class="fas fa-info-circle me-1"></i>Original document processed by Qwen2-VL AI model
+                        <i class="fas fa-info-circle me-1"></i>Original document image
                     </small>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Extracted Information Section -->
-    <div class="row">
-        <div class="col-12 mb-4">
-            <h3 class="h4 mb-4 border-bottom pb-2">
-                <i class="fas fa-robot me-2"></i>AI-Extracted Information
-            </h3>
-        </div>
-        <div class="col-12">
-            <div class="card shadow">
+        <!-- Extracted Information Section -->
+        <div class="col-md-7 mb-4">
+            <div class="card glass-card h-100 animate__animated animate__fadeInRight">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-file-alt me-2"></i>Extracted Information
+                </div>
                 <div class="card-body">
+                    {% if results.ERROR %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>{{ results.ERROR }}
+                    </div>
+                    {% else %}
                     <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="bg-primary text-white">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-primary">
                                 <tr>
                                     <th scope="col" style="width: 30%">
-                                        <i class="fas fa-tag me-2"></i>Entity Type
+                                        <i class="fas fa-tag me-2"></i>Field Type
                                     </th>
                                     <th scope="col">
                                         <i class="fas fa-text-width me-2"></i>Extracted Value
@@ -67,58 +64,28 @@
                             </thead>
                             <tbody>
                                 {% for key, value in results.items() %}
-                                {% if value %}
+                                {% if key != 'ERROR' and value %}
                                 <tr>
                                     <td class="fw-bold text-primary">{{ key }}</td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            <i class="fas fa-check-circle text-success me-2"></i>
-                                            {% if key == 'PHONE' and (value is iterable and value is not string) %}
-                                                <ul class="list-unstyled mb-0">
-                                                    {% for item in value %}
-                                                    <li><i class="fas fa-phone me-2 text-secondary"></i>{{ item }}</li>
-                                                    {% endfor %}
-                                                </ul>
-                                            {% elif key == 'PHONE' and ',' in value|string %}
-                                                <ul class="list-unstyled mb-0">
-                                                    {% for item in value.split(', ') %}
-                                                    <li><i class="fas fa-phone me-2 text-secondary"></i>{{ item }}</li>
-                                                    {% endfor %}
-                                                </ul>
-                                            {% elif key == 'EMAIL' and (value is iterable and value is not string) %}
-                                                <ul class="list-unstyled mb-0">
-                                                    {% for item in value %}
-                                                    <li>
-                                                        <a href="mailto:{{ item }}" class="text-decoration-none">
-                                                            <i class="fas fa-envelope me-2 text-secondary"></i>{{ item }}
-                                                        </a>
-                                                    </li>
-                                                    {% endfor %}
-                                                </ul>
+                                            {% if key == 'NAME' %}
+                                                <i class="fas fa-user text-success me-2"></i>
+                                            {% elif key == 'ORG' %}
+                                                <i class="fas fa-building text-success me-2"></i>
+                                            {% elif key == 'DES' %}
+                                                <i class="fas fa-briefcase text-success me-2"></i>
+                                            {% elif key == 'PHONE' %}
+                                                <i class="fas fa-phone text-success me-2"></i>
                                             {% elif key == 'EMAIL' %}
-                                                <a href="mailto:{{ value }}" class="text-decoration-none">
-                                                    <i class="fas fa-envelope me-2 text-secondary"></i>{{ value }}
-                                                </a>
-                                            {% elif key == 'WEB' and (value is iterable and value is not string) %}
-                                                <ul class="list-unstyled mb-0">
-                                                    {% for item in value %}
-                                                    <li>
-                                                        <a href="http://{{ item }}" target="_blank" class="text-decoration-none">
-                                                            <i class="fas fa-globe me-2 text-secondary"></i>{{ item }}
-                                                        </a>
-                                                    </li>
-                                                    {% endfor %}
-                                                </ul>
+                                                <i class="fas fa-envelope text-success me-2"></i>
                                             {% elif key == 'WEB' %}
-                                                <a href="http://{{ value }}" target="_blank" class="text-decoration-none">
-                                                    <i class="fas fa-globe me-2 text-secondary"></i>{{ value }}
-                                                </a>
-                                            {% elif value is iterable and value is not string %}
-                                                <ul class="list-unstyled mb-0">
-                                                    {% for item in value %}
-                                                    <li>{{ item }}</li>
-                                                    {% endfor %}
-                                                </ul>
+                                                <i class="fas fa-globe text-success me-2"></i>
+                                            {% else %}
+                                                <i class="fas fa-check-circle text-success me-2"></i>
+                                            {% endif %}
+                                            {% if value is iterable and value is not string %}
+                                                {{ value|join(', ') }}
                                             {% else %}
                                                 {{ value }}
                                             {% endif %}
@@ -130,60 +97,66 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- AI Model Information -->
-    <div class="row mt-5">
-        <div class="col-12">
-            <div class="card bg-light">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>About Qwen2-VL AI Model</h5>
-                    <p class="card-text">
-                        This document was analyzed using the Qwen2-VL-2B-OCR model, a multimodal AI system that can understand both text and visual elements in documents.
-                        Unlike traditional OCR which processes text character by character, this neural network-based model understands the semantic content and structure of the document.
-                    </p>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Action Buttons -->
-    <div class="row mt-5">
+    <div class="row mt-4">
         <div class="col-12 text-center">
-            <a href="/" class="btn btn-primary me-2">
+            <a href="/" class="btn btn-gradient me-2 animate__animated animate__pulse">
                 <i class="fas fa-camera me-2"></i>Scan Another Document
             </a>
-            <button onclick="window.print()" class="btn btn-outline-secondary">
+            <button onclick="window.print()" class="btn btn-outline-secondary animate__animated animate__pulse">
                 <i class="fas fa-print me-2"></i>Print Results
             </button>
         </div>
     </div>
 </div>
 
-<!-- Add custom styles -->
 <style>
-    .table td, .table th {
-        vertical-align: middle;
+    .glass-card {
+        background: rgba(255,255,255,0.7) !important;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.18) !important;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border-radius: 20px !important;
+        border: 1px solid rgba(255,255,255,0.18) !important;
     }
-    .card {
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: transform 0.2s ease;
+    .btn-gradient {
+        background: linear-gradient(90deg, #43cea2 0%, #185a9d 100%) !important;
+        color: #fff !important;
+        border: none !important;
+        box-shadow: 0 4px 15px rgba(67, 206, 162, 0.15);
+        transition: background 0.3s, transform 0.2s;
     }
-    .card:hover {
-        transform: translateY(-5px);
+    .btn-gradient:hover, .btn-gradient:focus {
+        background: linear-gradient(90deg, #185a9d 0%, #43cea2 100%) !important;
+        transform: translateY(-2px) scale(1.03);
+        color: #fff !important;
     }
     .section-title {
         border-bottom: 2px solid #0d6efd;
         padding-bottom: 10px;
         margin-bottom: 20px;
-        color: #0d6efd;
+        letter-spacing: 0.5px;
+    }
+    .table td, .table th {
+        vertical-align: middle;
+    }
+    .card {
+        margin-bottom: 0 !important;
     }
     @media print {
         .btn {
             display: none;
+        }
+    }
+    @media (max-width: 768px) {
+        .col-md-5, .col-md-7 {
+            width: 100%;
         }
     }
 </style>
