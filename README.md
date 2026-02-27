@@ -20,7 +20,6 @@
 9. [Repository Structure](#repository-structure)
 10. [Setup & Installation](#setup--installation)
 11. [Usage](#usage)
-12. [Future Improvements & Roadmap](#future-improvements--roadmap)
 
 ---
 
@@ -59,147 +58,124 @@ The system is designed to be **modular**, **extensible**, and **deployable on GP
 
 ### High-Level System Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         User (Web Browser)                           │
-│                  Upload Image + Select OCR Model                     │
-└─────────────────────────────┬────────────────────────────────────────┘
-                              │  HTTP POST
-                              ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                        Flask Web Server                              │
-│   ┌─────────────┐   ┌───────────────┐   ┌──────────────────────┐    │
-│   │  /          │   │  /transform   │   │  /prediction         │    │
-│   │  (Upload +  │   │  (Perspective │   │  (OCR + NER +        │    │
-│   │   Detect)   │   │   Transform)  │   │   Entity Extraction) │    │
-│   └──────┬──────┘   └───────┬───────┘   └──────────┬───────────┘    │
-└──────────┼──────────────────┼──────────────────────┼────────────────┘
-           │                  │                       │
-           ▼                  ▼                       ▼
-┌─────────────────┐  ┌──────────────────┐  ┌─────────────────────────┐
-│  OpenCV         │  │  OpenCV          │  │  Inference Engine       │
-│  Document Scan  │  │  Perspective     │  │  (selected at runtime)  │
-│  (Contour +     │  │  Transform +     │  │                         │
-│   Edge Detect)  │  │  Enhancement     │  │  ┌─────────────────┐    │
-└─────────────────┘  └──────────────────┘  │  │ Pytesseract +   │    │
-                                           │  │ SpaCy NER       │    │
-                                           │  └─────────────────┘    │
-                                           │  ┌─────────────────┐    │
-                                           │  │ Qwen2-VL-2B     │    │
-                                           │  │ (Vision LLM)    │    │
-                                           │  └─────────────────┘    │
-                                           │  ┌─────────────────┐    │
-                                           │  │ Azure Form      │    │
-                                           │  │ Recognizer API  │    │
-                                           │  └─────────────────┘    │
-                                           └─────────────────────────┘
-                                                        │
-                                                        ▼
-                                           ┌─────────────────────────┐
-                                           │  Structured Entities    │
-                                           │  NAME, ORG, DES,        │
-                                           │  PHONE, EMAIL, WEB      │
-                                           └─────────────────────────┘
+```mermaid
+flowchart TD
+    classDef user     fill:#4f46e5,stroke:#3730a3,color:#fff,font-weight:bold
+    classDef flask    fill:#0ea5e9,stroke:#0284c7,color:#fff,font-weight:bold
+    classDef cv       fill:#10b981,stroke:#059669,color:#fff,font-weight:bold
+    classDef engine   fill:#f59e0b,stroke:#d97706,color:#000,font-weight:bold
+    classDef backend  fill:#6366f1,stroke:#4f46e5,color:#fff,font-weight:bold
+    classDef output   fill:#ec4899,stroke:#db2777,color:#fff,font-weight:bold
+
+    A(["👤 User · Web Browser\nUpload Image + Select OCR Model"]):::user
+
+    subgraph FLASK["🌐 Flask Web Server · main.py"]
+        direction LR
+        R1["/ \nUpload + Detect"]:::flask
+        R2["/transform\nPerspective Transform"]:::flask
+        R3["/prediction\nOCR + NER"]:::flask
+        R1 --> R2 --> R3
+    end
+
+    A --> R1
+
+    R1 --> CV1["🔍 OpenCV · DocumentScan\nCanny · Contour · Polygon Detection"]:::cv
+    R2 --> CV2["🔄 OpenCV · imutils\nfour_point_transform\nbrightness / contrast"]:::cv
+
+    R3 --> INF{{"⚙️ Selected\nBackend"}}:::engine
+
+    INF --> B1["📝 Pytesseract + SpaCy NER\nOCR → BIO Tags → Entities"]:::backend
+    INF --> B2["🤖 Qwen2-VL-2B\nVision-Language Model\nFP16 · device_map=auto"]:::backend
+    INF --> B3["☁️ Azure Form Recognizer\nCloud API · v2.1"]:::backend
+
+    B1 & B2 & B3 --> OUT[["📋 Structured Output\nNAME · ORG · DES · PHONE · EMAIL · WEB"]]:::output
 ```
 
 ---
 
 ### Component-Level Architecture
 
-```
-AI-Powered-Business-Card-Entity-Extraction-Web-App/
-│
-├── main.py                     ← Flask app: routes, session, orchestration
-│
-├── config/
-│   └── settings.py             ← Path constants and environment config
-│
-├── utils/
-│   └── utils.py                ← DocumentScan: image preprocessing pipeline
-│                                  (resize, edge detect, contour find,
-│                                   perspective transform, brightness/contrast)
-│
-├── services/
-│   ├── predictions.py          ← Backend A: Pytesseract OCR + SpaCy NER
-│   │                              (text cleaning, entity grouping, bbox overlay)
-│   ├── qwenform.py             ← Backend B: Qwen2-VL-2B vision-language model
-│   │                              (model load, prompt engineering, JSON parsing)
-│   └── azureform.py            ← Backend C: Azure Form Recognizer REST API
-│                                  (async polling, entity extraction, normalization)
-│
-├── models/
-│   ├── model-best/             ← Best checkpoint of custom SpaCy NER model
-│   └── model-last/             ← Last checkpoint of custom SpaCy NER model
-│
-├── templates/                  ← Jinja2 HTML templates
-│   ├── scanner.html            ← Upload + interactive corner adjustment UI
-│   ├── predictions.html        ← Pytesseract/SpaCy results with bounding boxes
-│   ├── qwen_prediction.html    ← Qwen2 results display
-│   ├── azure_prediction.html   ← Azure results display
-│   ├── about.html              ← About page
-│   └── index.html              ← Landing page
-│
-├── static/                     ← CSS, JS, images
-├── test/                       ← Sample business card test images
-└── requirements_app.txt        ← Python dependencies
+```mermaid
+graph LR
+    classDef app      fill:#4f46e5,stroke:#3730a3,color:#fff,font-weight:bold
+    classDef service  fill:#0ea5e9,stroke:#0284c7,color:#fff,font-weight:bold
+    classDef util     fill:#10b981,stroke:#059669,color:#fff,font-weight:bold
+    classDef config   fill:#64748b,stroke:#475569,color:#fff,font-weight:bold
+    classDef model    fill:#f59e0b,stroke:#d97706,color:#000,font-weight:bold
+    classDef template fill:#ec4899,stroke:#db2777,color:#fff,font-weight:bold
+
+    MAIN["🏠 main.py\nFlask App · Routes · Session"]:::app
+
+    subgraph SVC["services/"]
+        PRED["predictions.py\nPytesseract + SpaCy NER"]:::service
+        QWEN["qwenform.py\nQwen2-VL-2B"]:::service
+        AZURE["azureform.py\nAzure Form Recognizer"]:::service
+    end
+
+    subgraph UTL["utils/"]
+        U["utils.py\nDocumentScan Pipeline"]:::util
+    end
+
+    subgraph CFG["config/"]
+        S["settings.py\nPath Constants"]:::config
+    end
+
+    subgraph MDL["models/"]
+        MB["model-best/\nSpaCy NER (best ckpt)"]:::model
+        ML["model-last/\nSpaCy NER (last ckpt)"]:::model
+    end
+
+    subgraph TPL["templates/"]
+        T1["scanner.html"]:::template
+        T2["predictions.html"]:::template
+        T3["qwen_prediction.html"]:::template
+        T4["azure_prediction.html"]:::template
+    end
+
+    MAIN --> PRED & QWEN & AZURE
+    MAIN --> U
+    MAIN --> S
+    U --> S
+    PRED --> MB & ML
+    PRED --> S
+    QWEN --> S
+    AZURE --> S
+    MAIN --> T1 & T2 & T3 & T4
 ```
 
 ---
 
 ### Data Flow Diagram
 
-```
-[User Uploads Image]
-        │
-        ▼
-[save_upload_image()]           → static/media/upload.jpg
-        │
-        ▼
-[DocumentScan.document_scanner()]
-  ├── Resize to 500px width
-  ├── Detail enhance (sigma_s=20, sigma_r=0.15)
-  ├── Grayscale conversion
-  ├── Gaussian blur (5×5 kernel)
-  ├── Canny edge detection (75, 200 thresholds)
-  ├── Morphological dilation + closing (5×5 kernel)
-  └── Contour detection → find largest 4-corner polygon
-        │
-        ▼
-[Browser: User adjusts 4 corner points interactively]
-        │
-        ▼
-[POST /transform]
-  ├── calibrate_to_original_size()  ← scale points to original resolution
-  ├── four_point_transform()        ← perspective warp
-  └── apply_brightness_contrast()  ← brightness=+40, contrast=+60
-        │                            → static/media/magic_color.jpg
-        ▼
-[GET /prediction]  ←── OCR model selected from session
-        │
-        ├── [pytesseract]
-        │     ├── pytesseract.image_to_data()    ← character-level bbox + text
-        │     ├── Text cleaning (whitespace, punctuation removal)
-        │     ├── SpaCy NER model inference       ← custom trained model
-        │     ├── BIO tag decoding                ← B-/I- prefix parsing
-        │     ├── Entity grouping + text parsing  ← phone/email/web normalization
-        │     └── Bounding box overlay on image   → static/media/bounding_box.jpg
-        │
-        ├── [qwen2]
-        │     ├── Load Qwen2-VL-2B (fp16, device_map=auto)
-        │     ├── Resize image to 640×640
-        │     ├── Apply chat template with structured JSON prompt
-        │     ├── Model.generate() (max_new_tokens=512, greedy decode)
-        │     └── JSON extraction + validation from generated text
-        │
-        └── [azure]
-              ├── POST to Azure Form Recognizer v2.1 businessCard endpoint
-              ├── Exponential backoff polling (2s initial, ×1.5 multiplier)
-              └── Field extraction: ContactNames, JobTitles, CompanyNames,
-                                    Addresses, Phones, Faxes, Emails, Websites
-        │
-        ▼
-[Render results template]
-  └── Structured entity dict → HTML display
+```mermaid
+flowchart TD
+    classDef io       fill:#0ea5e9,stroke:#0284c7,color:#fff,font-weight:bold
+    classDef proc     fill:#10b981,stroke:#059669,color:#fff,font-weight:bold
+    classDef decision fill:#f59e0b,stroke:#d97706,color:#000,font-weight:bold
+    classDef modelA   fill:#6366f1,stroke:#4f46e5,color:#fff,font-weight:bold
+    classDef modelB   fill:#8b5cf6,stroke:#7c3aed,color:#fff,font-weight:bold
+    classDef modelC   fill:#0ea5e9,stroke:#0284c7,color:#fff,font-weight:bold
+    classDef output   fill:#ec4899,stroke:#db2777,color:#fff,font-weight:bold
+    classDef file     fill:#64748b,stroke:#475569,color:#fff
+
+    A(["📷 User Uploads Image"]):::io
+    B["save_upload_image()\n→ static/media/upload.jpg"]:::file
+    C["DocumentScan.document_scanner()\nResize to 500px · Detail Enhance\nGrayscale · Gaussian Blur 5×5\nCanny Edge 75/200 · Morph Close\nContour → largest 4-corner polygon"]:::proc
+    D(["🖱️ Browser: User drags corner points\nto fine-tune card boundary"]):::io
+    E["POST /transform\ncalibrate_to_original_size()\nfour_point_transform()\napply_brightness_contrast(+40, +60)\n→ static/media/magic_color.jpg"]:::proc
+    F{{"GET /prediction\nOCR model from session"}}:::decision
+
+    G["📝 Pytesseract + SpaCy NER\nimage_to_data() word bboxes\nText cleaning · SpaCy NER inference\nBIO tag decode · entity grouping\nRegex normalization per field type\n→ bounding_box.jpg overlay"]:::modelA
+    H["🤖 Qwen2-VL-2B\nLoad FP16 · device_map=auto\nResize 640×640\nChat template + JSON schema prompt\nGenerate max_new_tokens=512 greedy\nJSON extract + validate"]:::modelB
+    I["☁️ Azure Form Recognizer\nPOST /prebuilt/businessCard/analyze\nExponential backoff polling\nField extraction + empty-field strip"]:::modelC
+
+    J[["📋 Structured Entities\nNAME · ORG · DES · PHONE · EMAIL · WEB\n→ Rendered HTML template"]]:::output
+
+    A --> B --> C --> D --> E --> F
+    F -->|pytesseract| G
+    F -->|qwen2| H
+    F -->|azure| I
+    G & H & I --> J
 ```
 
 ---
@@ -524,23 +500,6 @@ Navigate to `http://localhost:5000` in your browser.
 - Avoid heavy shadows or extreme angles (the interactive corner adjustment can compensate for moderate skew).
 - For heavily stylized cards with unusual fonts, prefer the Qwen2 or Azure backends over Pytesseract.
 - For batch processing at scale, prefer the Azure backend which is designed for production workloads.
-
----
-
-## Future Improvements & Roadmap
-
-| Priority | Feature | Description |
-|---|---|---|
-| 🔴 High | **Batch Upload Processing** | Accept multiple card images in a single submission, returning a combined JSON/CSV export |
-| 🔴 High | **CRM Export Integration** | One-click export to Salesforce, HubSpot, or CSV/vCard formats |
-| 🟡 Medium | **Multi-language Support** | Extend SpaCy NER training and Tesseract configuration for non-English cards |
-| 🟡 Medium | **Model Performance Dashboard** | Side-by-side comparison of all three backends on the same input with confidence scores |
-| 🟡 Medium | **Active Learning Pipeline** | Collect user corrections on extracted entities to continuously retrain the SpaCy NER model |
-| 🟡 Medium | **Containerization (Docker)** | Package the full application with all dependencies for one-command deployment |
-| 🟢 Low | **REST API Mode** | Expose a JSON API endpoint (`/api/extract`) for integration with third-party applications |
-| 🟢 Low | **Mobile Camera Capture** | Add in-browser camera access for real-time card capture without file upload |
-| 🟢 Low | **Confidence Scores** | Surface per-entity confidence scores to help users identify uncertain extractions |
-| 🟢 Low | **Qwen2-7B / Qwen2-72B Support** | Upgrade to larger Qwen2 model variants for improved accuracy on complex card layouts |
 
 ---
 
